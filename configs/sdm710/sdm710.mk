@@ -295,6 +295,9 @@ vendor.audio.offload.multiple.enabled=false
 PRODUCT_PROPERTY_OVERRIDES += \
 vendor.audio.offload.passthrough=true
 
+PRODUCT_PROPERTY_OVERRIDES += \
+audio.offload.min.duration.secs=5
+
 #Disable surround sound recording
 PRODUCT_PROPERTY_OVERRIDES += \
 ro.vendor.audio.sdk.ssr=false

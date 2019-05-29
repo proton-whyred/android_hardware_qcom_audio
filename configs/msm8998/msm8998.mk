@@ -158,6 +158,9 @@ persist.vendor.audio.ras.enabled=false
 PRODUCT_PROPERTY_OVERRIDES += \
 vendor.audio.offload.buffer.size.kb=32
 
+PRODUCT_PROPERTY_OVERRIDES += \
+audio.offload.min.duration.secs=5
+
 #Enable offload audio video playback by default
 PRODUCT_PROPERTY_OVERRIDES += \
 audio.offload.video=true
