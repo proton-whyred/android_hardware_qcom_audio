@@ -319,6 +319,9 @@ vendor.audio.feature.snd_mon.enable=true
 PRODUCT_PROPERTY_OVERRIDES += \
 persist.vendor.audio.qap.ecref=false
 
+PRODUCT_PROPERTY_OVERRIDES += \
+vendor.audio.qap.output.block.handling=true
+
 # for HIDL related packages
 PRODUCT_PACKAGES += \
     android.hardware.audio@2.0-service \
