@@ -7335,8 +7335,7 @@ int adev_open_output_stream(struct audio_hw_device *dev,
 
     if (direct_dev &&
         (audio_is_linear_pcm(out->format) ||
-         config->format == AUDIO_FORMAT_DEFAULT) &&
-        out->flags == AUDIO_OUTPUT_FLAG_NONE) {
+         config->format == AUDIO_FORMAT_DEFAULT)) {
         audio_format_t req_format = config->format;
         audio_channel_mask_t req_channel_mask = config->channel_mask;
         uint32_t req_sample_rate = config->sample_rate;
@@ -7509,6 +7508,14 @@ int adev_open_output_stream(struct audio_hw_device *dev,
         if (config->offload_info.sample_rate == 0)
             config->offload_info.sample_rate = config->sample_rate;
 
+        if (out->devices & AUDIO_DEVICE_OUT_AUX_DIGITAL) {
+            if (config->offload_info.format == 0)
+                config->offload_info.format = out->supported_formats[0];
+            if (config->offload_info.sample_rate == 0)
+                config->offload_info.sample_rate = out->supported_sample_rates[0];
+            if (config->offload_info.channel_mask == 0)
+                config->offload_info.channel_mask = out->supported_channel_masks[0];
+        }
         if (!is_supported_format(config->offload_info.format) &&
                 !audio_extn_passthru_is_supported_format(config->offload_info.format)) {
             ALOGE("%s: Unsupported audio format %x " , __func__, config->offload_info.format);
