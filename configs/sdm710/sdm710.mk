@@ -422,7 +422,7 @@ vendor.audio.feature.audiozoom.enable=false \
 vendor.audio.feature.snd_mon.enable=true
 
 PRODUCT_PROPERTY_OVERRIDES += \
-persist.vendor.audio.qap.ecref=false
+persist.vendor.audio.qap.ecref=off
 
 
 PRODUCT_PROPERTY_OVERRIDES += \
