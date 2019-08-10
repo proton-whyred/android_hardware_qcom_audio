@@ -119,7 +119,7 @@ bool qap_wrapper_session_active = false;
 
 stream_config stream_param[MAX_PLAYBACK_STREAMS];
 bool event_trigger;
-
+static int ignore_hdmi_err = 0;
 /*
  * Set to a high number so it doesn't interfere with existing stream handles
  */
@@ -377,6 +377,8 @@ int async_callback(qahw_stream_callback_event_t event, void *param,
         break;
     case QAHW_STREAM_CBK_EVENT_ERROR:
         fprintf(log_file, "stream %d: received event - QAHW_STREAM_CBK_EVENT_ERROR\n", params->stream_index);
+        if ((params->output_device == AUDIO_DEVICE_OUT_HDMI) && (ignore_hdmi_err < 5))
+            break;
         stop_playback = true;
         break;
     default:
@@ -616,7 +618,6 @@ void *start_stream_playback (void* stream_data)
     ssize_t bytes_to_read = 0;
     int32_t latency;
     char kvpair[KV_PAIR_MAX_LENGTH] = {0};
-
 
     memset(&drift_params, 0, sizeof(struct drift_data));
 
@@ -876,6 +877,8 @@ void *start_stream_playback (void* stream_data)
         bytes_written = write_to_hal(params->out_handle, data_ptr+offset, bytes_remaining, params);
         if (bytes_written < 0) {
             fprintf(stderr, "write failed %d", bytes_written);
+            if (++ignore_hdmi_err < 5 && (params->output_device == AUDIO_DEVICE_OUT_HDMI))
+                continue;
             exit = true;
             continue;
         }
