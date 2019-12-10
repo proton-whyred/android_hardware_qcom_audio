@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2020, The Linux Foundation. All rights reserved.
  * Not a Contribution.
  *
  * Copyright (C) 2013 The Android Open Source Project
@@ -310,6 +310,7 @@ struct platform_data {
     bool is_internal_codec;
     int mono_speaker;
     bool voice_speaker_stereo;
+    bool is_quad_speaker;
     /* Audio calibration related functions */
     void                       *acdb_handle;
     int                        voice_feature_set;
@@ -498,6 +499,7 @@ static const char * const device_table[SND_DEVICE_MAX] = {
     [SND_DEVICE_OUT_SPEAKER_VBAT] = "speaker-vbat",
     [SND_DEVICE_OUT_SPEAKER_REVERSE] = "speaker-reverse",
     [SND_DEVICE_OUT_SPEAKER_SAFE] = "speaker-safe",
+    [SND_DEVICE_OUT_SPEAKER_QUAD] = "speaker-quad",
     [SND_DEVICE_OUT_HEADPHONES] = "headphones",
     [SND_DEVICE_OUT_HEADPHONES_DSD] = "headphones-dsd",
     [SND_DEVICE_OUT_HEADPHONES_44_1] = "headphones-44.1",
@@ -770,6 +772,7 @@ static int acdb_device_table[SND_DEVICE_MAX] = {
     [SND_DEVICE_OUT_SPEAKER_VBAT] = 14,
     [SND_DEVICE_OUT_SPEAKER_REVERSE] = 14,
     [SND_DEVICE_OUT_SPEAKER_SAFE] = 14,
+    [SND_DEVICE_OUT_SPEAKER_QUAD] = 153,
     [SND_DEVICE_OUT_LINE] = 10,
     [SND_DEVICE_OUT_HEADPHONES] = 10,
     [SND_DEVICE_OUT_HEADPHONES_DSD] = 10,
@@ -1083,6 +1086,7 @@ static struct name_to_index snd_device_name_index[SND_DEVICE_MAX] = {
     {TO_NAME_INDEX(SND_DEVICE_OUT_BUS_SYS)},
     {TO_NAME_INDEX(SND_DEVICE_OUT_BUS_NAV)},
     {TO_NAME_INDEX(SND_DEVICE_OUT_BUS_PHN)},
+    {TO_NAME_INDEX(SND_DEVICE_OUT_SPEAKER_QUAD)},
     {TO_NAME_INDEX(SND_DEVICE_IN_HANDSET_MIC)},
     {TO_NAME_INDEX(SND_DEVICE_IN_HANDSET_MIC_SB)},
     {TO_NAME_INDEX(SND_DEVICE_IN_HANDSET_MIC_EXTERNAL)},
@@ -2143,6 +2147,7 @@ static void set_platform_defaults(struct platform_data * my_data)
     hw_interface_table[SND_DEVICE_OUT_SPEAKER_REVERSE] = strdup("SLIMBUS_0_RX");
     hw_interface_table[SND_DEVICE_OUT_SPEAKER_SAFE] = strdup("SLIMBUS_0_RX");
     hw_interface_table[SND_DEVICE_OUT_SPEAKER_VBAT] = strdup("SLIMBUS_0_RX");
+    hw_interface_table[SND_DEVICE_OUT_SPEAKER_QUAD] = strdup("SLIMBUS_0_RX");
     hw_interface_table[SND_DEVICE_OUT_LINE] = strdup("SLIMBUS_6_RX");
     hw_interface_table[SND_DEVICE_OUT_HEADPHONES] = strdup("SLIMBUS_6_RX");
     hw_interface_table[SND_DEVICE_OUT_HEADPHONES_DSD] = strdup("SLIMBUS_2_RX");
@@ -4847,6 +4852,23 @@ int native_audio_set_params(struct platform_data *platform,
     return ret;
 }
 
+static bool check_snd_device_is_speaker(snd_device_t snd_device)
+{
+    bool ret = false;
+
+    if (snd_device == SND_DEVICE_OUT_SPEAKER ||
+        snd_device == SND_DEVICE_OUT_SPEAKER_WSA ||
+        snd_device == SND_DEVICE_OUT_SPEAKER_VBAT ||
+        snd_device == SND_DEVICE_OUT_SPEAKER_PROTECTED ||
+        snd_device == SND_DEVICE_OUT_SPEAKER_PROTECTED_VBAT ||
+        snd_device == SND_DEVICE_OUT_SPEAKER_PROTECTED_RAS ||
+        snd_device == SND_DEVICE_OUT_SPEAKER_PROTECTED_VBAT_RAS ||
+        snd_device == SND_DEVICE_OUT_SPEAKER_QUAD) {
+        ret = true;
+    }
+    return ret;
+}
+
 int check_hdset_combo_device(snd_device_t snd_device)
 {
     int ret = false;
@@ -6012,6 +6034,9 @@ snd_device_t platform_get_output_snd_device(void *platform, struct stream_out *o
             snd_device = SND_DEVICE_OUT_SPEAKER_VBAT;
           else if (my_data->is_wsa_speaker)
             snd_device = SND_DEVICE_OUT_SPEAKER_WSA;
+          else if (my_data->is_quad_speaker &&
+            (out->flags & AUDIO_OUTPUT_FLAG_DEEP_BUFFER))
+            snd_device = SND_DEVICE_OUT_SPEAKER_QUAD;
         else
             snd_device = SND_DEVICE_OUT_SPEAKER;
     } else if (devices & AUDIO_DEVICE_OUT_ALL_SCO) {
@@ -7520,6 +7545,17 @@ int platform_set_parameters(void *platform, struct str_parms *parms)
         ALOGV("%s: max_mic_count %d", __func__, my_data->max_mic_count);
     }
 
+    err = str_parms_get_str(parms, AUDIO_PARAMETER_KEY_IS_QUAD_SPKR,
+                            value,len);
+    // quad speaker
+    if (err >= 0) {
+        if (value && !strncmp(value, "true", sizeof("true")))
+            my_data->is_quad_speaker = true;
+
+        str_parms_del(parms, AUDIO_PARAMETER_KEY_IS_QUAD_SPKR);
+        ALOGD("%s: is_quad_speaker %d", __func__, my_data->is_quad_speaker);
+    }
+
     platform_set_fluence_params(platform, parms, value, len);
 
     /* handle audio calibration parameters */
@@ -8792,8 +8828,8 @@ static bool platform_check_codec_backend_cfg(struct audio_device* adev,
         platform_set_edid_channels_configuration(adev->platform, channels, backend_idx, snd_device);
     }
 
-    ALOGI("%s:becf: afe: Codec selected backend: %d updated bit width: %d and sample rate: %d",
-          __func__, backend_idx , bit_width, sample_rate);
+    ALOGI("%s:becf: afe: Codec selected backend: %d updated bit width: %d and sample rate: %d"
+         " channels %d", __func__, backend_idx , bit_width, sample_rate, channels);
 
     // Force routing if the expected bitwdith or samplerate
     // is not same as current backend comfiguration
@@ -8861,7 +8897,16 @@ bool platform_check_and_set_codec_backend_cfg(struct audio_device* adev,
         backend_cfg.bit_width = usecase->stream.out->bit_width;
         backend_cfg.sample_rate = usecase->stream.out->sample_rate;
         backend_cfg.format = usecase->stream.out->format;
-        backend_cfg.channels = audio_channel_count_from_out_mask(usecase->stream.out->channel_mask);
+        if (!(hw_info_is_stereo_spkr(my_data->hw_info)) &&
+             check_snd_device_is_speaker(snd_device))
+            backend_cfg.channels = 1;
+        else if (my_data->is_quad_speaker &&
+                check_snd_device_is_speaker(snd_device) &&
+                (usecase->stream.out->flags & AUDIO_OUTPUT_FLAG_DEEP_BUFFER))
+                backend_cfg.channels = 4;
+        else
+            backend_cfg.channels =
+                audio_channel_count_from_out_mask(usecase->stream.out->channel_mask);
     }
     if (audio_extn_is_dsp_bit_width_enforce_mode_supported(usecase->stream.out->flags) &&
                 (adev->dsp_bit_width_enforce_mode > backend_cfg.bit_width))
@@ -11015,4 +11060,9 @@ int platform_get_license_by_product(void *platform __unused,
                                     char* product_license __unused)
 {
     return -ENOSYS;
+}
+
+bool platform_check_is_quad_spkr_enabled (void *platform) {
+    struct platform_data *my_data = (struct platform_data *)platform;
+    return my_data->is_quad_speaker;
 }
