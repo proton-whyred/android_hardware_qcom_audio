@@ -7345,11 +7345,11 @@ int adev_open_output_stream(struct audio_hw_device *dev,
             ALOGV("AUDIO_DEVICE_OUT_AUX_DIGITAL and DIRECT|OFFLOAD, check hdmi caps");
             ret = read_hdmi_sink_caps(out);
             if (config->sample_rate == 0)
-                config->sample_rate = DEFAULT_OUTPUT_SAMPLING_RATE;
+                config->sample_rate = out->supported_sample_rates[0];
             if (config->channel_mask == AUDIO_CHANNEL_NONE)
-                config->channel_mask = AUDIO_CHANNEL_OUT_5POINT1;
+                config->channel_mask = out->supported_channel_masks[0];
             if (config->format == AUDIO_FORMAT_DEFAULT)
-                config->format = AUDIO_FORMAT_PCM_16_BIT;
+                config->format = out->supported_formats[0];
         } else if (is_usb_dev) {
             ret = read_usb_sup_params_and_compare(true /*is_playback*/,
                                                   &config->format,
@@ -7410,7 +7410,7 @@ int adev_open_output_stream(struct audio_hw_device *dev,
             out->config.period_size = HDMI_MULTI_PERIOD_BYTES / (out->config.channels *
                                                          audio_bytes_per_sample(out->format));
         }
-        out->config.format = pcm_format_from_audio_format(out->format);
+        out->config.format = out->format;
     }
 
     /* validate bus device address */
@@ -7508,14 +7508,6 @@ int adev_open_output_stream(struct audio_hw_device *dev,
         if (config->offload_info.sample_rate == 0)
             config->offload_info.sample_rate = config->sample_rate;
 
-        if (out->devices & AUDIO_DEVICE_OUT_AUX_DIGITAL) {
-            if (config->offload_info.format == 0)
-                config->offload_info.format = out->supported_formats[0];
-            if (config->offload_info.sample_rate == 0)
-                config->offload_info.sample_rate = out->supported_sample_rates[0];
-            if (config->offload_info.channel_mask == 0)
-                config->offload_info.channel_mask = out->supported_channel_masks[0];
-        }
         if (!is_supported_format(config->offload_info.format) &&
                 !audio_extn_passthru_is_supported_format(config->offload_info.format)) {
             ALOGE("%s: Unsupported audio format %x " , __func__, config->offload_info.format);
