@@ -3437,7 +3437,7 @@ int audio_extn_qap_set_parameters(struct audio_device *adev, struct str_parms *p
                 qap_set_default_configuration_to_module();
                 pthread_mutex_unlock(&p_qap->lock);
 #ifndef SPLIT_A2DP_ENABLED
-                for (k = 0; k < MAX_MM_MODULE_TYPE; k++) {
+                for (int k = 0; k < MAX_MM_MODULE_TYPE; k++) {
                      if (!p_qap->qap_mod[k].bt_hdl) {
                          DEBUG_MSG("Opening a2dp output...");
                          status = audio_extn_bt_hal_load(&p_qap->qap_mod[k].bt_hdl);
@@ -3508,7 +3508,7 @@ int audio_extn_qap_set_parameters(struct audio_device *adev, struct str_parms *p
                 }
 #ifndef SPLIT_A2DP_ENABLED
                    DEBUG_MSG("Closing a2dp output...");
-                   for (k = 0; k < MAX_MM_MODULE_TYPE; k++) {
+                   for (int k = 0; k < MAX_MM_MODULE_TYPE; k++) {
                         if (p_qap->qap_mod[k].bt_hdl) {
                             audio_extn_bt_hal_unload(p_qap->qap_mod[k].bt_hdl);
                             p_qap->qap_mod[k].bt_hdl = NULL;

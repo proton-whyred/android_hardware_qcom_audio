@@ -775,7 +775,7 @@ void qap_wrapper_module_callback(__unused qap_module_handle_t module_handle, voi
             }
             qap_input_config_t *p_stream_format = (qap_input_config_t*)data;
 
-            ALOGV(" %s %d Input format updated; sample_rate %lu, channels %lu, bitwidth %lu",
+            ALOGV(" %s %d Input format updated; sample_rate %d, channels %d, bitwidth %d",
                   __func__, __LINE__,
                   p_stream_format->sample_rate,
                   p_stream_format->channels,
