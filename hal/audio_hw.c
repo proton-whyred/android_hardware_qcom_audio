@@ -2555,7 +2555,7 @@ int select_devices(struct audio_device *adev, audio_usecase_t uc_id)
                    in_snd_device = hfp_usecase->in_snd_device;
                    out_snd_device = hfp_usecase->out_snd_device;
             }
-        } else if (platform_check_is_quad_spkr_enabled(adev->platform) &&
+        } else if (audio_extn_is_quad_speaker_enabled() &&
                     (usecase->type == PCM_PLAYBACK) &&
                     platform_check_snd_device_is_speaker(usecase->stream.out->devices)) {
             /*

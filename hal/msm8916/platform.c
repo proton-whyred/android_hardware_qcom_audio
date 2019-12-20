@@ -265,7 +265,6 @@ struct platform_data {
     bool gsm_mode_enabled;
     int mono_speaker;
     bool voice_speaker_stereo;
-    bool is_quad_speaker;
     /* Audio calibration related functions */
     void                       *acdb_handle;
     int                        voice_feature_set;
@@ -2323,7 +2322,6 @@ void *platform_init(struct audio_device *adev)
     my_data->declared_mic_count = 0;
     my_data->spkr_ch_map = NULL;
     my_data->use_sprk_default_sample_rate = true;
-    my_data->is_quad_speaker = false;
 
     be_dai_name_table = NULL;
 
@@ -4484,7 +4482,7 @@ snd_device_t platform_get_output_snd_device(void *platform, struct stream_out *o
                     snd_device = SND_DEVICE_OUT_SPEAKER_VBAT;
                 else if (my_data->is_wsa_speaker)
                     snd_device = SND_DEVICE_OUT_SPEAKER_WSA;
-                else if (my_data->is_quad_speaker &&
+                else if (audio_extn_is_quad_speaker_enabled() &&
                     (out->flags & AUDIO_OUTPUT_FLAG_DEEP_BUFFER))
                     snd_device = SND_DEVICE_OUT_SPEAKER_QUAD;
                 else
@@ -5499,16 +5497,6 @@ int platform_set_parameters(void *platform, struct str_parms *parms)
         str_parms_del(parms, PLATFORM_MAX_MIC_COUNT);
         my_data->max_mic_count = atoi(value);
         ALOGV("%s: max_mic_count %d", __func__, my_data->max_mic_count);
-    }
-
-    err = str_parms_get_str(parms, AUDIO_PARAMETER_KEY_IS_QUAD_SPKR,
-                            value, len);
-    if (err >= 0) {
-        if (value && !strncmp(value, "true", sizeof("true")))
-            my_data->is_quad_speaker = true;
-
-        str_parms_del(parms, AUDIO_PARAMETER_KEY_IS_QUAD_SPKR);
-        ALOGD("%s: is_quad_speaker %d", __func__, my_data->is_quad_speaker);
     }
 
     /* handle audio calibration parameters */
@@ -8645,9 +8633,4 @@ int platform_get_active_microphones(void *platform, unsigned int channels,
 end:
     *mic_count = actual_mic_count;
     return 0;
-}
-
-bool platform_check_is_quad_spkr_enabled(void *platform) {
-    struct platform_data *my_data = (struct platform_data *)platform;
-    return my_data->is_quad_speaker;
 }
