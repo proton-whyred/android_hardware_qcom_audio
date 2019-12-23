@@ -422,8 +422,28 @@ vendor.audio.feature.audiozoom.enable=false \
 vendor.audio.feature.snd_mon.enable=true
 
 PRODUCT_PROPERTY_OVERRIDES += \
-persist.vendor.audio.qap.ecref=off
+vendor.audio.qap.enabled=true
 
+PRODUCT_PROPERTY_OVERRIDES += \
+vendor.audio.qap.dts_m8=false
+
+PRODUCT_PROPERTY_OVERRIDES += \
+vendor.audio.qap.library=/vendor/lib/libdolby_ms12_wrapper.so
+
+PRODUCT_PROPERTY_OVERRIDES += \
+vendor.audio.qap.reencode=true
+
+PRODUCT_PROPERTY_OVERRIDES += \
+vendor.audio.qap.passthrough=false
+
+PRODUCT_PROPERTY_OVERRIDES += \
+vendor.audio.qap.hdmi.out=ddp
+
+PRODUCT_PROPERTY_OVERRIDES += \
+vendor.audio.qap.msmd=false
+
+PRODUCT_PROPERTY_OVERRIDES += \
+persist.vendor.audio.qap.ecref=off
 
 PRODUCT_PROPERTY_OVERRIDES += \
 vendor.audio.qap.output.block.handling=true
