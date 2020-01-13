@@ -3447,131 +3447,129 @@ int audio_extn_qap_set_parameters(struct audio_device *adev, struct str_parms *p
        return status;
     }
 
-    if (!p_qap->bypass_enable) {
-        status = str_parms_get_str(parms, "ecref", value, sizeof(value));
-        if (status >= 0) {
-            status = set_ecref(value);
-            DEBUG_MSG("Set ec ref to channel %ld is %s", strtol(value, NULL, 10), status ? "failed" : "success");
-            return status;
-        }
-        status = str_parms_get_str(parms, "ms12_out_format", value, sizeof(value));
-        if (status > 0) {
-            status = set_ms12_output_format(value);
-            DEBUG_MSG("Set ms12 output format to %s is %s", value, status ? "failed" : "success");
-            return status;
-        }
-        status = str_parms_get_int(parms, AUDIO_PARAMETER_DEVICE_CONNECT, &val);
+    status = str_parms_get_str(parms, "ecref", value, sizeof(value));
+    if (status >= 0) {
+        status = set_ecref(value);
+        DEBUG_MSG("Set ec ref to channel %ld is %s", strtol(value, NULL, 10), status ? "failed" : "success");
+        return status;
+    }
+    status = str_parms_get_str(parms, "ms12_out_format", value, sizeof(value));
+    if (status > 0) {
+        status = set_ms12_output_format(value);
+        DEBUG_MSG("Set ms12 output format to %s is %s", value, status ? "failed" : "success");
+        return status;
+    }
+    status = str_parms_get_int(parms, AUDIO_PARAMETER_DEVICE_CONNECT, &val);
 
-        if ((status >= 0) && audio_is_output_device(val)) {
-            if (val & AUDIO_DEVICE_OUT_AUX_DIGITAL) { //HDMI is connected.
-                DEBUG_MSG("AUDIO_DEVICE_OUT_AUX_DIGITAL connected");
-                p_qap->hdmi_connect = 1;
-                p_qap->hdmi_sink_channels = 0;
+    if ((status >= 0) && audio_is_output_device(val)) {
+        if (val & AUDIO_DEVICE_OUT_AUX_DIGITAL) { //HDMI is connected.
+            DEBUG_MSG("AUDIO_DEVICE_OUT_AUX_DIGITAL connected");
+            p_qap->hdmi_connect = 1;
+            p_qap->hdmi_sink_channels = 0;
 
-                if (p_qap->passthrough_in) { //If QAP passthrough is already initialized.
-                   lock_output_stream_l(p_qap->passthrough_in);
-                   if (platform_is_edid_supported_format(adev->platform,
-                                                      p_qap->passthrough_in->format)) {
+            if (p_qap->passthrough_in) { //If QAP passthrough is already initialized.
+                lock_output_stream_l(p_qap->passthrough_in);
+                if (platform_is_edid_supported_format(adev->platform,
+                                                   p_qap->passthrough_in->format)) {
                     //If passthrough format is supported by HDMI then create the QAP passthrough output if not created already.
-                       create_qap_passthrough_stream_l();
-                    //Ignoring the returned error, If error then QAP passthrough is disabled.
-                    } else {
-                    //If passthrough format is not supported by HDMI then close the QAP passthrough output if already created.
-                       close_qap_passthrough_stream_l();
-                    }
-                    unlock_output_stream_l(p_qap->passthrough_in);
+                    create_qap_passthrough_stream_l();
+                   //Ignoring the returned error, If error then QAP passthrough is disabled.
+                } else {
+                   //If passthrough format is not supported by HDMI then close the QAP passthrough output if already created.
+                   close_qap_passthrough_stream_l();
                 }
-                pthread_mutex_lock(&p_qap->lock);
-                qap_set_hdmi_configuration_to_module();
-                pthread_mutex_unlock(&p_qap->lock);
-            } else if (val & AUDIO_DEVICE_OUT_BLUETOOTH_A2DP) {
-                DEBUG_MSG("AUDIO_DEVICE_OUT_BLUETOOTH_A2DP connected");
-                p_qap->bt_connect = 1;
-                pthread_mutex_lock(&p_qap->lock);
-                qap_set_default_configuration_to_module();
-                pthread_mutex_unlock(&p_qap->lock);
-#ifndef SPLIT_A2DP_ENABLED
-                for (int k = 0; k < MAX_MM_MODULE_TYPE; k++) {
-                     if (!p_qap->qap_mod[k].bt_hdl) {
-                         DEBUG_MSG("Opening a2dp output...");
-                         status = audio_extn_bt_hal_load(&p_qap->qap_mod[k].bt_hdl);
-                         if (status != 0) {
-                             ERROR_MSG("Error opening BT module");
-                             return status;
-                         }
-                     }
-                }
-#endif
+                unlock_output_stream_l(p_qap->passthrough_in);
             }
+            pthread_mutex_lock(&p_qap->lock);
+            qap_set_hdmi_configuration_to_module();
+            pthread_mutex_unlock(&p_qap->lock);
+        } else if (val & AUDIO_DEVICE_OUT_BLUETOOTH_A2DP) {
+              DEBUG_MSG("AUDIO_DEVICE_OUT_BLUETOOTH_A2DP connected");
+              p_qap->bt_connect = 1;
+              pthread_mutex_lock(&p_qap->lock);
+              qap_set_default_configuration_to_module();
+              pthread_mutex_unlock(&p_qap->lock);
+#ifndef SPLIT_A2DP_ENABLED
+              for (int k = 0; k < MAX_MM_MODULE_TYPE; k++) {
+                   if (!p_qap->qap_mod[k].bt_hdl) {
+                       DEBUG_MSG("Opening a2dp output...");
+                       status = audio_extn_bt_hal_load(&p_qap->qap_mod[k].bt_hdl);
+                       if (status != 0) {
+                           ERROR_MSG("Error opening BT module");
+                           return status;
+                       }
+                   }
+              }
+#endif
+         }
         //TODO else if: Need to consider other devices.
-        }
+    }
 
-        status = str_parms_get_int(parms, AUDIO_PARAMETER_DEVICE_DISCONNECT, &val);
-        if ((status >= 0) && audio_is_output_device(val)) {
-            if (val & AUDIO_DEVICE_OUT_AUX_DIGITAL) {
+    status = str_parms_get_int(parms, AUDIO_PARAMETER_DEVICE_DISCONNECT, &val);
+    if ((status >= 0) && audio_is_output_device(val)) {
+        if (val & AUDIO_DEVICE_OUT_AUX_DIGITAL) {
             DEBUG_MSG("AUDIO_DEVICE_OUT_AUX_DIGITAL disconnected");
 
-                p_qap->hdmi_sink_channels = 0;
+            p_qap->hdmi_sink_channels = 0;
 
-                p_qap->passthrough_enabled = 0;
-                p_qap->mch_pcm_hdmi_enabled = 0;
-                p_qap->hdmi_connect = 0;
+            p_qap->passthrough_enabled = 0;
+            p_qap->mch_pcm_hdmi_enabled = 0;
+            p_qap->hdmi_connect = 0;
 
-                if (!p_qap->qap_mod[MS12].session_handle &&
-                       !p_qap->qap_mod[DTS_M8].session_handle) {
-                    DEBUG_MSG("HDMI disconnection comes even before session is setup");
-                    return 0;
-                }
+            if (!p_qap->qap_mod[MS12].session_handle &&
+                  !p_qap->qap_mod[DTS_M8].session_handle) {
+                 DEBUG_MSG("HDMI disconnection comes even before session is setup");
+                 return 0;
+             }
 
-                session_outputs_config.num_output = 1;
+             session_outputs_config.num_output = 1;
 
-                session_outputs_config.output_config[0].id = AUDIO_DEVICE_OUT_SPEAKER;
-                session_outputs_config.output_config[0].format = QAP_AUDIO_FORMAT_PCM_16_BIT;
+             session_outputs_config.output_config[0].id = AUDIO_DEVICE_OUT_SPEAKER;
+             session_outputs_config.output_config[0].format = QAP_AUDIO_FORMAT_PCM_16_BIT;
 
-                if (p_qap->qap_mod[MS12].session_handle) {
-                   DEBUG_MSG("Enabling speaker(PCM out) from MS12 wrapper outputid = %x",
+             if (p_qap->qap_mod[MS12].session_handle) {
+                 DEBUG_MSG("Enabling speaker(PCM out) from MS12 wrapper outputid = %x",
                              session_outputs_config.output_config[0].id);
 
-                   pthread_mutex_lock(&p_qap->lock);
-                   status = qap_session_cmd_l(p_qap->qap_mod[MS12].session_handle,
+                 pthread_mutex_lock(&p_qap->lock);
+                 status = qap_session_cmd_l(p_qap->qap_mod[MS12].session_handle,
                                              &session_outputs_config);
-                   pthread_mutex_unlock(&p_qap->lock);
-                   if (QAP_STATUS_OK != status) {
-                       ERROR_MSG("Unable to register AUDIO_DEVICE_OUT_SPEAKER device with QAP %d",status);
-                       return -EINVAL;
-                   }
-                }
-                if (p_qap->qap_mod[DTS_M8].session_handle) {
-                    pthread_mutex_lock(&p_qap->lock);
-                    status = qap_session_cmd_l(p_qap->qap_mod[MS12].session_handle,
+                 pthread_mutex_unlock(&p_qap->lock);
+                 if (QAP_STATUS_OK != status) {
+                     ERROR_MSG("Unable to register AUDIO_DEVICE_OUT_SPEAKER device with QAP %d",status);
+                     return -EINVAL;
+                 }
+              }
+              if (p_qap->qap_mod[DTS_M8].session_handle) {
+                  pthread_mutex_lock(&p_qap->lock);
+                  status = qap_session_cmd_l(p_qap->qap_mod[MS12].session_handle,
                                                &session_outputs_config);
-                    pthread_mutex_unlock(&p_qap->lock);
-                    if (QAP_STATUS_OK != status) {
-                        ERROR_MSG("Unable to register AUDIO_DEVICE_OUT_SPEAKER device with QAP %d", status);
-                        return -EINVAL;
+                  pthread_mutex_unlock(&p_qap->lock);
+                  if (QAP_STATUS_OK != status) {
+                      ERROR_MSG("Unable to register AUDIO_DEVICE_OUT_SPEAKER device with QAP %d", status);
+                      return -EINVAL;
+                  }
+              }
+          } else if (val & AUDIO_DEVICE_OUT_BLUETOOTH_A2DP) {
+               DEBUG_MSG("AUDIO_DEVICE_OUT_BLUETOOTH_A2DP disconnected");
+               p_qap->bt_connect = 0;
+                //reconfig HDMI as end device (if connected)
+               if(p_qap->hdmi_connect) {
+                  pthread_mutex_lock(&p_qap->lock);
+                  qap_set_hdmi_configuration_to_module();
+                  pthread_mutex_unlock(&p_qap->lock);
+               }
+#ifndef SPLIT_A2DP_ENABLED
+               DEBUG_MSG("Closing a2dp output...");
+               for (int k = 0; k < MAX_MM_MODULE_TYPE; k++) {
+                    if (p_qap->qap_mod[k].bt_hdl) {
+                        audio_extn_bt_hal_unload(p_qap->qap_mod[k].bt_hdl);
+                        p_qap->qap_mod[k].bt_hdl = NULL;
                     }
                 }
-            } else if (val & AUDIO_DEVICE_OUT_BLUETOOTH_A2DP) {
-                DEBUG_MSG("AUDIO_DEVICE_OUT_BLUETOOTH_A2DP disconnected");
-                p_qap->bt_connect = 0;
-                //reconfig HDMI as end device (if connected)
-                if(p_qap->hdmi_connect) {
-                   pthread_mutex_lock(&p_qap->lock);
-                   qap_set_hdmi_configuration_to_module();
-                   pthread_mutex_unlock(&p_qap->lock);
-                }
-#ifndef SPLIT_A2DP_ENABLED
-                   DEBUG_MSG("Closing a2dp output...");
-                   for (int k = 0; k < MAX_MM_MODULE_TYPE; k++) {
-                        if (p_qap->qap_mod[k].bt_hdl) {
-                            audio_extn_bt_hal_unload(p_qap->qap_mod[k].bt_hdl);
-                            p_qap->qap_mod[k].bt_hdl = NULL;
-                        }
-                   }
 #endif
-            }
+           }
         //TODO else if: Need to consider other devices.
-        }
     }
 
     DEBUG_MSG("Exit");
