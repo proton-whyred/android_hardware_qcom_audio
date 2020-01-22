@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2020, The Linux Foundation. All rights reserved.
  * Not a Contribution.
  *
  * Copyright (C) 2013 The Android Open Source Project
@@ -181,6 +181,7 @@ enum {
     SND_DEVICE_OUT_BUS_SYS,
     SND_DEVICE_OUT_BUS_NAV,
     SND_DEVICE_OUT_BUS_PHN,
+    SND_DEVICE_OUT_SPEAKER_QUAD,
     SND_DEVICE_OUT_END,
 
     /*
@@ -364,6 +365,7 @@ enum {
 #define AUDIO_PARAMETER_KEY_NATIVE_AUDIO_MODE "native_audio_mode"
 
 #define AUDIO_PARAMETER_KEY_TRUE_32_BIT "true_32_bit"
+#define AUDIO_PARAMETER_KEY_IS_QUAD_SPKR "quad_speaker"
 
 #define AUDIO_MAX_DSP_CHANNELS 32
 

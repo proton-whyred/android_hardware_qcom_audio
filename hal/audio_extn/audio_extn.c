@@ -3651,16 +3651,16 @@ void hdmi_edid_feature_init(bool is_feature_enabled)
         //map each function
         //on any faliure to map any function, disble feature
         if (((hdmi_edid_is_supported_sr =
-             (hdmi_edid_is_supported_sr_t)dlsym(hdmi_edid_lib_handle, 
+             (hdmi_edid_is_supported_sr_t)dlsym(hdmi_edid_lib_handle,
                                                 "edid_is_supported_sr")) == NULL) ||
             ((hdmi_edid_is_supported_bps =
              (hdmi_edid_is_supported_bps_t)dlsym(hdmi_edid_lib_handle,
                                                 "edid_is_supported_bps")) == NULL) ||
             ((hdmi_edid_get_highest_supported_sr =
-             (hdmi_edid_get_highest_supported_sr_t)dlsym(hdmi_edid_lib_handle, 
+             (hdmi_edid_get_highest_supported_sr_t)dlsym(hdmi_edid_lib_handle,
                                                 "edid_get_highest_supported_sr")) == NULL) ||
             ((hdmi_edid_get_sink_caps =
-             (hdmi_edid_get_sink_caps_t)dlsym(hdmi_edid_lib_handle, 
+             (hdmi_edid_get_sink_caps_t)dlsym(hdmi_edid_lib_handle,
                                                 "edid_get_sink_caps")) == NULL)) {
             ALOGE("%s: dlsym failed", __func__);
             goto feature_disabled;
@@ -4077,7 +4077,20 @@ void audio_extn_customstereo_set_parameters(struct audio_device *adev,
     }
 }
 
-void audio_extn_send_dual_mono_mixing_coefficients(struct stream_out *out)
+bool audio_extn_up_down_matrix_mixing_needed(struct stream_out *out)
+{
+    struct audio_device *adev = out->dev;
+    bool status = false;
+
+    if (out->set_dual_mono ||
+        (platform_check_is_quad_spkr_enabled(adev->platform) &&
+        (out->flags & AUDIO_OUTPUT_FLAG_DEEP_BUFFER)))
+        status = true;
+
+    return status;
+}
+
+void audio_extn_send_matrix_mixing_coefficients(struct stream_out *out)
 {
     struct audio_device *adev = out->dev;
     struct mixer_ctl *ctl;
@@ -4095,6 +4108,13 @@ void audio_extn_send_dual_mono_mixing_coefficients(struct stream_out *out)
         out->set_dual_mono = true;
         goto exit;
         }
+        /*
+         * Stereo to 4ch upmixing is enabled for deep buffer path only for now
+         * Support for offload case will be handled later.
+         */
+        if (platform_check_is_quad_spkr_enabled(adev->platform) &&
+            (out->flags & AUDIO_OUTPUT_FLAG_DEEP_BUFFER))
+            op_channel_cnt = 4;
 
         ALOGD("%s: i/p channel count %d, o/p channel count %d, pcm id %d", __func__,
                ip_channel_cnt, op_channel_cnt, pcm_device_id);
@@ -4134,12 +4154,36 @@ void audio_extn_send_dual_mono_mixing_coefficients(struct stream_out *out)
          */
         cust_ch_mixer_cfg[len++] = ip_channel_cnt;
         cust_ch_mixer_cfg[len++] = op_channel_cnt;
-        for (i = 0; i < op_channel_cnt; i++) {
-             for (j = 0; j < ip_channel_cnt; j++) {
-                  cust_ch_mixer_cfg[len++] = Q14_GAIN_UNITY/ip_channel_cnt;
-             }
-        }
+        if (ip_channel_cnt > op_channel_cnt) {
+        /*
+        * To get dualmono ouptut weightage coeff is calculated as Unity gain
+        * divided by number of input channels.
+        */
+            ALOGD("%s: Down mixing", __func__);
+            for (i = 0; i < op_channel_cnt; i++) {
+                for (j = 0; j < ip_channel_cnt; j++) {
+                    cust_ch_mixer_cfg[len++] = Q14_GAIN_UNITY/ip_channel_cnt;
+                }
+            }
+        } else if (ip_channel_cnt < op_channel_cnt) {
+        /*
+         * In up mixing input L/R data is duplicated in the required o/p channels
+         * Below mapping is hardcoded for stereo input to 4 channel o/p as L,R,Ls,Rs.
+         *       I/p L  I/p R
+                 O/p L  1      0
+                 O/p R  0      1
+         * To Do: Extend below logic to read channel map from platform xml instead
+         * of hard coding.
+         */
 
+            ALOGD("%s: Up mixing", __func__);
+            for (i = 0; i < ip_channel_cnt; i++) {
+                cust_ch_mixer_cfg[len++] = Q14_GAIN_UNITY;
+                cust_ch_mixer_cfg[len++] = 0;
+                cust_ch_mixer_cfg[len++] = 0;
+                cust_ch_mixer_cfg[len++] = Q14_GAIN_UNITY;
+            }
+        }
         err = mixer_ctl_set_array(ctl, cust_ch_mixer_cfg, len);
         if (err)
             ALOGE("%s: ERROR. Mixer ctl set failed", __func__);
