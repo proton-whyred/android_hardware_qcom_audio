@@ -202,6 +202,7 @@ static bool audio_extn_compress_in_enabled = false;
 static bool audio_extn_battery_listener_enabled = false;
 static bool audio_extn_maxx_audio_enabled = false;
 static bool audio_extn_audiozoom_enabled = false;
+static bool audio_extn_quad_speaker_enabled = false;
 
 #define AUDIO_PARAMETER_KEY_AANC_NOISE_LEVEL "aanc_noise_level"
 #define AUDIO_PARAMETER_KEY_ANC        "anc_enabled"
@@ -548,7 +549,7 @@ void audio_extn_set_custom_mtmx_params_v2(struct audio_device *adev,
          * So set o/p channels to 4 instead of backend cfg channels and update
          * feature id also.
          */
-        if (platform_check_is_quad_spkr_enabled(adev->platform) &&
+        if (audio_extn_is_quad_speaker_enabled() &&
             (info.snd_device == SND_DEVICE_OUT_SPEAKER_QUAD)) {
             info.id = 1;
             info.op_channels = 4;
@@ -5186,6 +5187,19 @@ bool audio_extn_battery_properties_is_charging()
 }
 // END: BATTERY_LISTENER ================================================================
 
+// START: QUAD SPEAKER ============================================================
+bool audio_extn_is_quad_speaker_enabled()
+{
+    return audio_extn_quad_speaker_enabled;
+}
+
+void quad_speaker_feature_init(bool is_feature_enabled)
+{
+    audio_extn_quad_speaker_enabled = is_feature_enabled;
+    ALOGD("%s: ---- Feature QUAD_SPEAKER is %s----", __func__, is_feature_enabled? "ENABLED": "NOT ENABLED");
+}
+
+// END: QUAD SPEAKER ============================================================
 // START: AUDIOZOOM_FEATURE =====================================================================
 #ifdef __LP64__
 #define AUDIOZOOM_LIB_PATH "/vendor/lib64/libaudiozoom.so"
@@ -5527,6 +5541,9 @@ void audio_extn_feature_init()
     audiozoom_feature_init(
         property_get_bool("vendor.audio.feature.audiozoom.enable",
                            true));
+    quad_speaker_feature_init(
+        property_get_bool("vendor.audio.feature.quad_speaker.enable",
+                           false));
 }
 
 void audio_extn_set_parameters(struct audio_device *adev,

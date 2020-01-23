@@ -292,7 +292,6 @@ enum {
 #define AUDIO_PARAMETER_KEY_NATIVE_AUDIO_MODE "native_audio_mode"
 
 #define AUDIO_PARAMETER_KEY_TRUE_32_BIT "true_32_bit"
-#define AUDIO_PARAMETER_KEY_IS_QUAD_SPKR "quad_speaker"
 
 #define ALL_SESSION_VSID                0xFFFFFFFF
 #define DEFAULT_MUTE_RAMP_DURATION_MS   20

@@ -310,7 +310,6 @@ struct platform_data {
     bool is_internal_codec;
     int mono_speaker;
     bool voice_speaker_stereo;
-    bool is_quad_speaker;
     /* Audio calibration related functions */
     void                       *acdb_handle;
     int                        voice_feature_set;
@@ -3058,7 +3057,6 @@ void *platform_init(struct audio_device *adev)
     my_data->spkr_ch_map = NULL;
     my_data->use_sprk_default_sample_rate = true;
     my_data->fluence_in_voice_comm = false;
-    my_data->is_quad_speaker = false;
 
     //set max volume step for voice call
     property_get("ro.config.vc_call_vol_steps", value, TOSTRING(MAX_VOL_INDEX));
@@ -3455,8 +3453,6 @@ acdb_init_fail:
         strdup("SLIM_0_RX Format");
     my_data->current_backend_cfg[DEFAULT_CODEC_BACKEND].samplerate_mixer_ctl =
         strdup("SLIM_0_RX SampleRate");
-    my_data->current_backend_cfg[DEFAULT_CODEC_BACKEND].channels_mixer_ctl =
-        strdup("SLIM_0_RX Channels");
 
     my_data->current_backend_cfg[DSD_NATIVE_BACKEND].bitwidth_mixer_ctl =
         strdup("SLIM_2_RX Format");
@@ -6037,7 +6033,7 @@ snd_device_t platform_get_output_snd_device(void *platform, struct stream_out *o
             snd_device = SND_DEVICE_OUT_SPEAKER_VBAT;
           else if (my_data->is_wsa_speaker)
             snd_device = SND_DEVICE_OUT_SPEAKER_WSA;
-          else if (my_data->is_quad_speaker &&
+          else if (audio_extn_is_quad_speaker_enabled() &&
             (out->flags & AUDIO_OUTPUT_FLAG_DEEP_BUFFER))
             snd_device = SND_DEVICE_OUT_SPEAKER_QUAD;
         else
@@ -7546,17 +7542,6 @@ int platform_set_parameters(void *platform, struct str_parms *parms)
         str_parms_del(parms, PLATFORM_MAX_MIC_COUNT);
         my_data->max_mic_count = atoi(value);
         ALOGV("%s: max_mic_count %d", __func__, my_data->max_mic_count);
-    }
-
-    err = str_parms_get_str(parms, AUDIO_PARAMETER_KEY_IS_QUAD_SPKR,
-                            value,len);
-    // quad speaker
-    if (err >= 0) {
-        if (value && !strncmp(value, "true", sizeof("true")))
-            my_data->is_quad_speaker = true;
-
-        str_parms_del(parms, AUDIO_PARAMETER_KEY_IS_QUAD_SPKR);
-        ALOGD("%s: is_quad_speaker %d", __func__, my_data->is_quad_speaker);
     }
 
     platform_set_fluence_params(platform, parms, value, len);
@@ -11054,9 +11039,4 @@ int platform_get_license_by_product(void *platform __unused,
                                     char* product_license __unused)
 {
     return -ENOSYS;
-}
-
-bool platform_check_is_quad_spkr_enabled(void *platform) {
-    struct platform_data *my_data = (struct platform_data *)platform;
-    return my_data->is_quad_speaker;
 }

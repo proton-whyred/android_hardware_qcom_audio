@@ -391,7 +391,5 @@ struct audio_custom_mtmx_in_params * platform_get_custom_mtmx_in_params(void *pl
                                     struct audio_custom_mtmx_in_params_info *info);
 int platform_add_custom_mtmx_in_params(void *platform,
                                     struct audio_custom_mtmx_in_params_info *info);
-/* Quad speaker feature */
-bool platform_check_is_quad_spkr_enabled (void *platform);
 bool platform_check_snd_device_is_speaker(snd_device_t snd_device);
 #endif // AUDIO_PLATFORM_API_H
