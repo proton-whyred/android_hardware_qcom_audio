@@ -1323,8 +1323,7 @@ int audio_extn_get_fluence_parameters(const struct audio_device *adev,
                   struct str_parms *query, struct str_parms *reply);
 
 bool audio_extn_is_custom_stereo_enabled();
-void audio_extn_send_matrix_mixing_coefficients(struct stream_out *out);
-bool audio_extn_up_down_matrix_mixing_needed(struct stream_out *out);
+void audio_extn_send_dual_mono_mixing_coefficients(struct stream_out *out);
 
 void audio_extn_set_cpu_affinity();
 bool audio_extn_is_record_play_concurrency_enabled();

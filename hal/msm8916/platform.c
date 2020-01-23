@@ -2323,6 +2323,7 @@ void *platform_init(struct audio_device *adev)
     my_data->declared_mic_count = 0;
     my_data->spkr_ch_map = NULL;
     my_data->use_sprk_default_sample_rate = true;
+    my_data->is_quad_speaker = false;
 
     be_dai_name_table = NULL;
 
@@ -3596,7 +3597,7 @@ bool platform_supports_true_32bit()
     return supports_true_32_bit;
 }
 
-static bool check_snd_device_is_speaker(snd_device_t snd_device)
+bool platform_check_snd_device_is_speaker(snd_device_t snd_device)
 {
     bool ret = false;
 
@@ -6711,13 +6712,7 @@ bool platform_check_and_set_codec_backend_cfg(struct audio_device* adev,
         backend_cfg.bit_width = usecase->stream.out->bit_width;
         backend_cfg.sample_rate = usecase->stream.out->sample_rate;
         backend_cfg.format = usecase->stream.out->format;
-        if (my_data->is_quad_speaker &&
-            check_snd_device_is_speaker(snd_device) &&
-            (usecase->stream.out->flags & AUDIO_OUTPUT_FLAG_DEEP_BUFFER))
-                backend_cfg.channels = 4;
-        else
-            backend_cfg.channels =
-                audio_channel_count_from_out_mask(usecase->stream.out->channel_mask);
+        backend_cfg.channels = audio_channel_count_from_out_mask(usecase->stream.out->channel_mask);
     }
     /* enforce AFE bitwidth mode via backend_cfg */
     if (audio_extn_is_dsp_bit_width_enforce_mode_supported(usecase->stream.out->flags) &&
@@ -8652,7 +8647,7 @@ end:
     return 0;
 }
 
-bool platform_check_is_quad_spkr_enabled (void *platform) {
+bool platform_check_is_quad_spkr_enabled(void *platform) {
     struct platform_data *my_data = (struct platform_data *)platform;
     return my_data->is_quad_speaker;
 }
