@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2020, The Linux Foundation. All rights reserved.
  * Not a Contribution.
  *
  * Copyright (C) 2013 The Android Open Source Project
@@ -62,16 +62,6 @@
 
 #ifndef AUDIO_DEVICE_OUT_FM_TX
 #define AUDIO_DEVICE_OUT_FM_TX 0x8000000
-#endif
-
-#ifndef AUDIO_FORMAT_AAC_LATM
-#define AUDIO_FORMAT_AAC_LATM 0x80000000UL
-#define AUDIO_FORMAT_AAC_LATM_LC   (AUDIO_FORMAT_AAC_LATM |\
-                                      AUDIO_FORMAT_AAC_SUB_LC)
-#define AUDIO_FORMAT_AAC_LATM_HE_V1 (AUDIO_FORMAT_AAC_LATM |\
-                                      AUDIO_FORMAT_AAC_SUB_HE_V1)
-#define AUDIO_FORMAT_AAC_LATM_HE_V2  (AUDIO_FORMAT_AAC_LATM |\
-                                      AUDIO_FORMAT_AAC_SUB_HE_V2)
 #endif
 
 #ifndef AUDIO_FORMAT_AC4
