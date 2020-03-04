@@ -580,6 +580,7 @@ static const char * const device_table[SND_DEVICE_MAX] = {
     [SND_DEVICE_IN_INCALL_REC_TX] = "incall-rec-tx",
     [SND_DEVICE_IN_INCALL_REC_RX_TX] = "incall-rec-rx-tx",
     [SND_DEVICE_IN_LINE] = "line-in",
+    [SND_DEVICE_IN_EC_REF_LOOPBACK_QUAD] = "ec-ref-loopback-quad",
 };
 
 // Platform specific backend bit width table
@@ -755,6 +756,7 @@ static int acdb_device_table[SND_DEVICE_MAX] = {
     [SND_DEVICE_IN_EC_REF_LOOPBACK_STEREO] = 4,
     [SND_DEVICE_IN_HANDSET_GENERIC_QMIC] = 150,
     [SND_DEVICE_IN_LINE] = 4,
+    [SND_DEVICE_IN_EC_REF_LOOPBACK_QUAD] = 4,
 };
 
 struct name_to_index {
@@ -916,6 +918,7 @@ static struct name_to_index snd_device_name_index[SND_DEVICE_MAX] = {
     {TO_NAME_INDEX(SND_DEVICE_IN_INCALL_REC_TX)},
     {TO_NAME_INDEX(SND_DEVICE_IN_INCALL_REC_RX_TX)},
     {TO_NAME_INDEX(SND_DEVICE_IN_LINE)},
+    {TO_NAME_INDEX(SND_DEVICE_IN_EC_REF_LOOPBACK_QUAD)},
 };
 
 static char * backend_tag_table[SND_DEVICE_MAX] = {0};
@@ -3024,7 +3027,8 @@ int platform_get_snd_device_name_extn(void *platform, snd_device_t snd_device,
         hw_info_append_hw_type(my_data->hw_info, snd_device, device_name);
 
         if ((snd_device == SND_DEVICE_IN_EC_REF_LOOPBACK_MONO) ||
-            (snd_device == SND_DEVICE_IN_EC_REF_LOOPBACK_STEREO))
+            (snd_device == SND_DEVICE_IN_EC_REF_LOOPBACK_STEREO) ||
+            (snd_device == SND_DEVICE_IN_EC_REF_LOOPBACK_QUAD))
             audio_extn_ffv_append_ec_ref_dev_name(device_name);
     } else {
         strlcpy(device_name, "", DEVICE_NAME_MAX_SIZE);
@@ -8041,15 +8045,21 @@ int platform_get_vi_feedback_snd_device(snd_device_t snd_device)
 
 int platform_get_ec_ref_loopback_snd_device(int channel_count)
 {
-    snd_device_t snd_device;
+    snd_device_t snd_device = SND_DEVICE_NONE;
 
-    if (channel_count == 1)
-        snd_device = SND_DEVICE_IN_EC_REF_LOOPBACK_MONO;
-    else if (channel_count == 2)
-        snd_device = SND_DEVICE_IN_EC_REF_LOOPBACK_STEREO;
-    else
-        snd_device = SND_DEVICE_NONE;
-
+    switch (channel_count) {
+        case 1:
+            snd_device = SND_DEVICE_IN_EC_REF_LOOPBACK_MONO;
+            break;
+        case 2:
+            snd_device = SND_DEVICE_IN_EC_REF_LOOPBACK_STEREO;
+            break;
+        case 4:
+            snd_device = SND_DEVICE_IN_EC_REF_LOOPBACK_QUAD;
+            break;
+        default:
+            snd_device = SND_DEVICE_NONE;
+    }
     return snd_device;
 }
 

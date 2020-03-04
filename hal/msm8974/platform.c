@@ -721,10 +721,13 @@ static const char * const device_table[SND_DEVICE_MAX] = {
     [SND_DEVICE_IN_VOICE_HEARING_AID] = "hearing-aid-mic",
     [SND_DEVICE_IN_BUS] = "bus-mic",
     [SND_DEVICE_IN_EC_REF_LOOPBACK] = "ec-ref-loopback",
+    [SND_DEVICE_IN_EC_REF_LOOPBACK_MONO] = "ec-ref-loopback-mono",
+    [SND_DEVICE_IN_EC_REF_LOOPBACK_STEREO] = "ec-ref-loopback-stereo",
     [SND_DEVICE_IN_HANDSET_DMIC_AND_EC_REF_LOOPBACK] = "handset-dmic-and-ec-ref-loopback",
     [SND_DEVICE_IN_HANDSET_QMIC_AND_EC_REF_LOOPBACK] = "handset-qmic-and-ec-ref-loopback",
     [SND_DEVICE_IN_HANDSET_6MIC_AND_EC_REF_LOOPBACK] = "handset-6mic-and-ec-ref-loopback",
     [SND_DEVICE_IN_HANDSET_8MIC_AND_EC_REF_LOOPBACK] = "handset-8mic-and-ec-ref-loopback",
+    [SND_DEVICE_IN_EC_REF_LOOPBACK_QUAD] = "ec-ref-loopback-quad",
 };
 
 // Platform specific backend bit width table
@@ -982,6 +985,9 @@ static int acdb_device_table[SND_DEVICE_MAX] = {
     [SND_DEVICE_IN_CAMCORDER_SELFIE_PORTRAIT] = 4,
     [SND_DEVICE_IN_VOICE_HEARING_AID] = 44,
     [SND_DEVICE_IN_BUS] = 11,
+    [SND_DEVICE_IN_EC_REF_LOOPBACK_MONO] = 4,
+    [SND_DEVICE_IN_EC_REF_LOOPBACK_STEREO] = 4,
+    [SND_DEVICE_IN_EC_REF_LOOPBACK_QUAD] = 4,
 };
 
 struct name_to_index {
@@ -1217,10 +1223,13 @@ static struct name_to_index snd_device_name_index[SND_DEVICE_MAX] = {
     {TO_NAME_INDEX(SND_DEVICE_IN_CAMCORDER_MIC)},
     {TO_NAME_INDEX(SND_DEVICE_IN_BUS)},
     {TO_NAME_INDEX(SND_DEVICE_IN_EC_REF_LOOPBACK)},
+    {TO_NAME_INDEX(SND_DEVICE_IN_EC_REF_LOOPBACK_MONO)},
+    {TO_NAME_INDEX(SND_DEVICE_IN_EC_REF_LOOPBACK_STEREO)},
     {TO_NAME_INDEX(SND_DEVICE_IN_HANDSET_DMIC_AND_EC_REF_LOOPBACK)},
     {TO_NAME_INDEX(SND_DEVICE_IN_HANDSET_QMIC_AND_EC_REF_LOOPBACK)},
     {TO_NAME_INDEX(SND_DEVICE_IN_HANDSET_6MIC_AND_EC_REF_LOOPBACK)},
     {TO_NAME_INDEX(SND_DEVICE_IN_HANDSET_8MIC_AND_EC_REF_LOOPBACK)},
+    {TO_NAME_INDEX(SND_DEVICE_IN_EC_REF_LOOPBACK_QUAD)}
 };
 
 static char * backend_tag_table[SND_DEVICE_MAX] = {0};
@@ -3078,7 +3087,9 @@ void *platform_init(struct audio_device *adev)
                       my_data->fluence_cap, NULL) > 0) ||
         (property_get("ro.qc.sdk.audio.fluencetype",
                       my_data->fluence_cap, NULL) > 0)) {
-        if (!strncmp("fluencepro", my_data->fluence_cap, sizeof("fluencepro"))) {
+        if (!strncmp("fluenceffv", my_data->fluence_cap, sizeof("fluenceffv"))) {
+            my_data->fluence_type = FLUENCE_HEX_MIC | FLUENCE_QUAD_MIC | FLUENCE_DUAL_MIC;
+        } else if (!strncmp("fluencepro", my_data->fluence_cap, sizeof("fluencepro"))) {
             my_data->fluence_type = FLUENCE_QUAD_MIC | FLUENCE_DUAL_MIC;
 
             if (property_get_bool("persist.vendor.audio.fluence.tmic.enabled",false)) {
@@ -3357,8 +3368,6 @@ void *platform_init(struct audio_device *adev)
             ALOGD("ACDB initialization failed");
         }
     }
-    /* init keep-alive for compress passthru */
-    audio_extn_keep_alive_init(adev);
 
 #ifdef FLICKER_SENSOR_INPUT
     configure_flicker_sensor_input(adev->mixer);
@@ -3425,6 +3434,7 @@ acdb_init_fail:
 
     /* Read one time ssr property */
     audio_extn_ssr_update_enabled();
+    audio_extn_ffv_update_enabled();
     audio_extn_spkr_prot_init(adev);
 
     audio_extn_hwdep_cal_send(adev->snd_card, my_data->acdb_handle);
@@ -3735,7 +3745,7 @@ struct audio_custom_mtmx_params *
             params->info.ip_channels == info->ip_channels &&
             params->info.op_channels == info->op_channels &&
             params->info.snd_device == info->snd_device) {
-            while (params->info.usecase_id[i] != 0) {
+            while (params->info.usecase_id[i] != USECASE_INVALID) {
                 if (params->info.usecase_id[i] == info->usecase_id[0]) {
                     ALOGV("%s: found params with ip_ch %d op_ch %d uc_id %d snd_dev %d",
                            __func__, info->ip_channels, info->op_channels,
@@ -3783,7 +3793,7 @@ int platform_add_custom_mtmx_params(void *platform,
     ALOGI("%s: adding mtmx params with id %d ip_ch %d op_ch %d snd_dev %d",
           __func__, info->id, info->ip_channels, info->op_channels,
           info->snd_device);
-    while (info->usecase_id[i] != 0) {
+    while (info->usecase_id[i] != USECASE_INVALID) {
         ALOGI("%s: supported usecase ids for added mtmx params %d",
               __func__, info->usecase_id[i]);
         i++;
@@ -3822,7 +3832,7 @@ struct audio_custom_mtmx_in_params *platform_get_custom_mtmx_in_params(void *pla
         params = node_to_item(node, struct audio_custom_mtmx_in_params, list);
         if (params &&
             params->in_info.op_channels == info->op_channels) {
-            while (params->in_info.usecase_id[i] != 0) {
+            while (params->in_info.usecase_id[i] != USECASE_INVALID) {
                 if (params->in_info.usecase_id[i] == info->usecase_id[0]) {
                     ALOGV("%s: found params with op_ch %d uc_id %d",
                           __func__, info->op_channels, info->usecase_id[0]);
@@ -3865,7 +3875,7 @@ int platform_add_custom_mtmx_in_params(void *platform,
     ALOGI("%s: adding mtmx in params with op_ch %d",
           __func__, info->op_channels);
 
-    while (info->usecase_id[i] != 0) {
+    while (info->usecase_id[i] != USECASE_INVALID) {
         ALOGI("%s: supported usecase ids for added mtmx in params %d",
               __func__, info->usecase_id[i]);
         i++;
@@ -4094,6 +4104,10 @@ int platform_get_snd_device_name_extn(void *platform, snd_device_t snd_device,
         } else
             strlcpy(device_name, device_table[snd_device], DEVICE_NAME_MAX_SIZE);
         hw_info_append_hw_type(my_data->hw_info, snd_device, device_name);
+        if ((snd_device == SND_DEVICE_IN_EC_REF_LOOPBACK_MONO) ||
+            (snd_device == SND_DEVICE_IN_EC_REF_LOOPBACK_STEREO) ||
+            (snd_device == SND_DEVICE_IN_EC_REF_LOOPBACK_QUAD))
+            audio_extn_ffv_append_ec_ref_dev_name(device_name);
     } else {
         strlcpy(device_name, "", DEVICE_NAME_MAX_SIZE);
         return -EINVAL;
@@ -4453,7 +4467,9 @@ int platform_get_fluence_type(void *platform, char *value, uint32_t len)
     int ret = 0;
     struct platform_data *my_data = (struct platform_data *)platform;
 
-    if (my_data->fluence_type == FLUENCE_QUAD_MIC) {
+    if (my_data->fluence_type == FLUENCE_HEX_MIC) {
+        strlcpy(value, "hexmic", len);
+    } else if (my_data->fluence_type == FLUENCE_QUAD_MIC) {
         strlcpy(value, "quadmic", len);
     } else if (my_data->fluence_type == FLUENCE_TRI_MIC) {
         strlcpy(value, "trimic", len);
@@ -6717,7 +6733,11 @@ snd_device_t platform_get_input_snd_device(void *platform,
         if (in_device & AUDIO_DEVICE_IN_BUILTIN_MIC &&
                 channel_count == 1 ) {
             if(my_data->fluence_in_audio_rec) {
-               if ((my_data->fluence_type & FLUENCE_QUAD_MIC) &&
+               if ((my_data->fluence_type & FLUENCE_HEX_MIC) &&
+                    (my_data->source_mic_type & SOURCE_HEX_MIC) &&
+                    (audio_extn_ffv_get_stream() == in)) {
+                    snd_device = audio_extn_ffv_get_capture_snd_device();
+               } else if ((my_data->fluence_type & FLUENCE_QUAD_MIC) &&
                     (my_data->source_mic_type & SOURCE_QUAD_MIC)) {
                     snd_device = SND_DEVICE_IN_HANDSET_QMIC;
                     platform_set_echo_reference(adev, true, out_device);
@@ -7554,6 +7574,7 @@ int platform_set_parameters(void *platform, struct str_parms *parms)
     audio_extn_hfp_set_parameters(my_data->adev, parms);
     perf_lock_set_params(platform, parms, value, len);
     true_32_bit_set_params(parms, value, len);
+    audio_extn_ffv_set_parameters(my_data->adev, parms);
     platform_spkr_device_set_params(platform, parms, value, len);
 done:
     ALOGV("%s: exit with code(%d)", __func__, ret);
@@ -10393,6 +10414,27 @@ done:
     return ret;
 }
 
+int platform_get_ec_ref_loopback_snd_device(int channel_count)
+{
+    snd_device_t snd_device = SND_DEVICE_NONE;
+
+    switch(channel_count) {
+        case 1:
+            snd_device = SND_DEVICE_IN_EC_REF_LOOPBACK_MONO;
+            break;
+        case 2:
+            snd_device = SND_DEVICE_IN_EC_REF_LOOPBACK_STEREO;
+            break;
+        case 4:
+            snd_device = SND_DEVICE_IN_EC_REF_LOOPBACK_QUAD;
+            break;
+        default:
+            snd_device = SND_DEVICE_NONE;
+            break;
+    }
+    return snd_device;
+}
+
 int platform_set_sidetone(struct audio_device *adev,
                           snd_device_t out_snd_device,
                           bool enable,
@@ -11033,10 +11075,56 @@ end:
     return 0;
 }
 
-int platform_get_license_by_product(void *platform __unused,
-                                    const char* product_name __unused,
-                                    int *product_id __unused,
-                                    char* product_license __unused)
+int platform_get_license_by_product
+(
+    void *platform,
+    const char* product_name,
+    int* product_id,
+    char* product_license
+)
 {
-    return -ENOSYS;
+    int ret = 0;
+    int id = 0;
+    acdb_audio_cal_cfg_t cal;
+    uint32_t param_len = LICENSE_STR_MAX_LEN;
+    struct platform_data *my_data = (struct platform_data *)platform;
+
+    if ((NULL == platform) || (NULL == product_name) || (NULL == product_id)) {
+        ALOGE("[%s] Invalid input parameters",__func__);
+        ret = -EINVAL;
+        goto on_error;
+    }
+
+    id =  platform_get_meta_info_key_from_list(platform, (char*)product_name);
+    if(0 == id)
+    {
+        ALOGE("%s:Id not found for %s", __func__, product_name);
+        ret = -EINVAL;
+        goto on_error;
+    }
+
+    ALOGD("%s: Found Id[%d] for %s", __func__, id, product_name);
+    if(NULL == my_data->acdb_get_audio_cal){
+        ALOGE("[%s] acdb_get_audio_cal is NULL.",__func__);
+        ret = -ENOSYS;
+        goto on_error;
+    }
+
+    memset(&cal, 0, sizeof(cal));
+    cal.persist = 1;
+    cal.cal_type = AUDIO_CORE_METAINFO_CAL_TYPE;
+    cal.acdb_dev_id = (uint32_t) id;
+    ret = my_data->acdb_get_audio_cal((void*)&cal, (void*)product_license, &param_len);
+
+    if (0 == ret) {
+        ALOGD("%s: Got Length[%d] License[%s]", __func__, param_len, product_license );
+        *product_id = id;
+        return 0;
+    }
+    ALOGD("%s: License not found for %s", __func__, product_name);
+
+on_error:
+    if (product_id)
+        *product_id = 0;
+    return ret;
 }
