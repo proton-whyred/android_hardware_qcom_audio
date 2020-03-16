@@ -199,6 +199,7 @@ struct qap_module {
     unsigned long long qap_output_bytes_written[MAX_QAP_MODULE_OUT];
     pthread_cond_t session_output_cond;
     pthread_mutex_t session_output_lock;
+    pthread_cond_t drain_output_cond;
 
 };
 
@@ -1012,6 +1013,7 @@ static int qap_out_standby(struct audio_stream *stream)
           stream, out->usecase, use_case_table[out->usecase]);
 
     lock_qap_stream_in(out);
+    qap_mod = get_qap_module_for_input_stream_l(out);
     if (!p_qap->bypass_enable) {
        lock_output_stream_l(out);
        DEBUG_MSG("Total bytes consumed %llu[frames] for usecase %s stream (%p) by MM Module",
@@ -1039,11 +1041,15 @@ static int qap_out_standby(struct audio_stream *stream)
           do {
              if (check_stream_state_l(out, STOPPED))
                 break;
-             usleep(1);
+            /*If hdmi is disconnected and stream is stopped state
+              release the lock and wait on drain_output_cond,
+              qap_session callback acquires lock and moves stream
+              to stopped state.
+             */
+             pthread_cond_wait(&qap_mod->drain_output_cond, &out->lock);
           } while(1);
        }
 
-       qap_mod = get_qap_module_for_input_stream_l(out);
        if (p_qap->qap_output_block_handling) {
            for (i = 0; i < MAX_QAP_MODULE_IN; i++) {
                if (qap_mod->stream_in[i] != NULL &&
@@ -2148,7 +2154,7 @@ static void qap_session_callback(qap_session_handle_t session_handle __unused,
                         if (devices & AUDIO_DEVICE_OUT_AUX_DIGITAL)
                             devices ^= AUDIO_DEVICE_OUT_AUX_DIGITAL;
                     }
-                    if (devices == 0) {
+                    if (devices == 0 || !p_qap->hdmi_connect) {
                         devices = device;
                     }
 
@@ -2266,6 +2272,7 @@ static void qap_session_callback(qap_session_handle_t session_handle __unused,
             out_pcm->client_callback(STREAM_CBK_EVENT_DRAIN_READY, NULL, out_pcm->client_cookie);
             set_stream_state_l(out_pcm, STOPPED);
             unlock_output_stream_l(out_pcm);
+            pthread_cond_signal(&qap_mod->drain_output_cond);
             DEBUG_MSG("sent pcm DRAIN_READY");
         } else if ( event_id == QAP_CALLBACK_EVENT_EOS_ASSOC
                 && (out_assoc != NULL)
@@ -2275,6 +2282,7 @@ static void qap_session_callback(qap_session_handle_t session_handle __unused,
             out_assoc->client_callback(STREAM_CBK_EVENT_DRAIN_READY, NULL, out_assoc->client_cookie);
             set_stream_state_l(out_assoc, STOPPED);
             unlock_output_stream_l(out_assoc);
+            pthread_cond_signal(&qap_mod->drain_output_cond);
             DEBUG_MSG("sent associated DRAIN_READY");
         } else if (event_id == QAP_CALLBACK_EVENT_MAIN_2_EOS
                 && (out_main2 != NULL)
@@ -2284,12 +2292,14 @@ static void qap_session_callback(qap_session_handle_t session_handle __unused,
             out_main2->client_callback(STREAM_CBK_EVENT_DRAIN_READY, NULL, out_main2->client_cookie);
             set_stream_state_l(out_main2, STOPPED);
             unlock_output_stream_l(out_main2);
+            pthread_cond_signal(&qap_mod->drain_output_cond);
             DEBUG_MSG("sent main2 DRAIN_READY");
         } else if ((out != NULL) && (check_stream_state_l(out, STOPPING))) {
             lock_output_stream_l(out);
             out->client_callback(STREAM_CBK_EVENT_DRAIN_READY, NULL, out->client_cookie);
             set_stream_state_l(out, STOPPED);
             unlock_output_stream_l(out);
+            pthread_cond_signal(&qap_mod->drain_output_cond);
             DEBUG_MSG("sent main DRAIN_READY");
         }
     }
@@ -3553,6 +3563,7 @@ int audio_extn_qap_init(struct audio_device *adev)
                 DEBUG_MSG("Loaded QAP lib at %s", lib_name);
                 pthread_mutex_init(&qap_mod->session_output_lock, (const pthread_mutexattr_t *) NULL);
                 pthread_cond_init(&qap_mod->session_output_cond, (const pthread_condattr_t *)NULL);
+                pthread_cond_init(&qap_mod->drain_output_cond, (const pthread_condattr_t *)NULL);
             }
         } else if (i == DTS_M8) {
             property_get("vendor.audio.qap.m8.library", value, NULL);
@@ -3618,6 +3629,7 @@ void audio_extn_qap_deinit()
                 }
                 pthread_mutex_destroy(&p_qap->qap_mod[i].session_output_lock);
                 pthread_cond_destroy(&p_qap->qap_mod[i].session_output_cond);
+                pthread_cond_destroy(&p_qap->qap_mod[i].drain_output_cond);
 
                 for (i = QAP_IN_MAIN; i < MAX_QAP_MODULE_IN; i++) {
                      pthread_mutex_destroy(&p_qap->qap_mod[i].qap_stream_in_lock[i]);
