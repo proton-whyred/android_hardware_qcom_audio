@@ -217,6 +217,7 @@ endif
 ifeq ($(strip $(AUDIO_FEATURE_ENABLED_QAF)),true)
     LOCAL_CFLAGS += -DQAF_EXTN_ENABLED
     LOCAL_C_INCLUDES += $(TARGET_OUT_HEADERS)/mm-audio/qaf/
+    LOCAL_HEADER_LIBRARIES += audio_qaf_headers
     LOCAL_SRC_FILES += audio_extn/qaf.c
 endif
 
@@ -367,6 +368,10 @@ endif
 
 ifeq ($(strip $(AUDIO_FEATURE_ENABLED_ASUS_TFA98XX)), true)
 LOCAL_CFLAGS += -DASUS_TFA98XX_ENABLED
+endif 
+
+ifeq ($(strip $(AUDIO_FEATURE_ENABLED_A2DP_DECODERS)), true)
+    LOCAL_CFLAGS += -DAPTX_DECODER_ENABLED
 endif
 
 LOCAL_MODULE := audio.primary.$(TARGET_BOARD_PLATFORM)
