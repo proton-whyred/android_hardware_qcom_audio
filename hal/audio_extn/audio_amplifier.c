@@ -19,7 +19,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <dlfcn.h>
-#include <log/log.h>
+#include <cutils/log.h>
 
 #include "audio_hw.h"
 #include "platform.h"
